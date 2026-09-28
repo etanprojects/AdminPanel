@@ -1,4 +1,4 @@
-using System.Collections.Concurrent;
+﻿using System.Collections.Concurrent;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.SignalR;
 
@@ -6,7 +6,6 @@ namespace AdminPanel.Api.Actions;
 
 public enum JobState { Running, Completed, Cancelled, Failed }
 
-/// <summary>Stan zadania wsadowego (wykonania akcji dla wielu zadań).</summary>
 public sealed class ActionJob
 {
     public Guid Id { get; } = Guid.NewGuid();
@@ -46,14 +45,9 @@ public sealed record JobSnapshot(
     Guid JobId, string ActionKey, string ActionName, int Total, JobState State, int Processed, int Succeeded, int Failed,
     string? Error, string StartedBy, DateTimeOffset StartedAt, DateTimeOffset? FinishedAt, IReadOnlyList<ExecutionItemResult> Results);
 
-/// <summary>Zdarzenie wysyłane przez WebSocket (SignalR) po każdym requeście i na zakończenie.</summary>
 public sealed record JobProgress(
     Guid JobId, JobState State, int Processed, int Succeeded, int Failed, int Total, ExecutionItemResult? Result, string? Error);
 
-/// <summary>
-/// Uruchamia akcje w tle (niezależnie od połączenia przeglądarki) i rozgłasza postęp przez SignalR
-/// do grupy "job:{id}". Zakończone joby są trzymane w pamięci przez 24 h.
-/// </summary>
 public sealed class ActionJobManager(ActionExecutor executor, IHubContext<JobsHub> hub, ILogger<ActionJobManager> log)
 {
     private static readonly TimeSpan Retention = TimeSpan.FromHours(24);
@@ -113,10 +107,6 @@ public sealed class ActionJobManager(ActionExecutor executor, IHubContext<JobsHu
 [Authorize(Policy = AuthPolicies.App)]
 public sealed class JobsHub(ActionJobManager jobs) : Hub
 {
-    /// <summary>
-    /// Dołącza do zdarzeń joba i zwraca bieżący stan. Klient deduplikuje wyniki po "index",
-    /// więc zdarzenia, które przyszły między dołączeniem a snapshotem, nie zdublują się.
-    /// </summary>
     public async Task<JobSnapshot?> Subscribe(Guid jobId)
     {
         var job = jobs.Get(jobId);

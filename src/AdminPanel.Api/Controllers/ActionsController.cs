@@ -1,4 +1,4 @@
-using AdminPanel.Api.Actions;
+﻿using AdminPanel.Api.Actions;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 
@@ -9,14 +9,9 @@ namespace AdminPanel.Api.Controllers;
 [Authorize(Policy = AuthPolicies.App)]
 public sealed class ActionsController(ActionCatalog catalog, ActionExecutor executor, ActionJobManager jobs) : ControllerBase
 {
-    /// <summary>Typy akcji zdefiniowane w actions.json.</summary>
     [HttpGet("actions")]
     public IEnumerable<ActionInfo> GetActions() => catalog.GetAll().Select(catalog.ToInfo);
 
-    /// <summary>
-    /// Uruchamia akcję dla listy zadań jako job w tle. Postęp jest publikowany przez WebSocket
-    /// (SignalR, /hubs/jobs, metoda Subscribe(jobId)).
-    /// </summary>
     [HttpPost("actions/{key}/jobs")]
     public IActionResult Start(string key, [FromBody] ExecuteActionRequest request)
     {
@@ -30,7 +25,6 @@ public sealed class ActionsController(ActionCatalog catalog, ActionExecutor exec
         return Ok(new { jobId = job.Id });
     }
 
-    /// <summary>Historia wykonań (bez wyników szczegółowych).</summary>
     [HttpGet("jobs")]
     public IEnumerable<JobSnapshot> GetJobs() => jobs.List().Select(j => j.Snapshot() with { Results = [] });
 

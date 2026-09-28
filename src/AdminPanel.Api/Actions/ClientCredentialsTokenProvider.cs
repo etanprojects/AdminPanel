@@ -1,10 +1,9 @@
-using System.Net.Http.Json;
+﻿using System.Net.Http.Json;
 using System.Text.Json;
 using Microsoft.Extensions.Options;
 
 namespace AdminPanel.Api.Actions;
 
-/// <summary>Token aplikacyjny (grant client_credentials) z cache do czasu wygaśnięcia.</summary>
 public sealed class ClientCredentialsTokenProvider(
     IHttpClientFactory httpFactory, IOptions<ExecutionOptions> execOptions, IOptions<AuthOptions> authOptions)
 {

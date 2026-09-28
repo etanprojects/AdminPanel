@@ -1,4 +1,3 @@
-import { HubConnectionBuilder, LogLevel } from '@microsoft/signalr'
 import { getAccessToken } from './auth'
 import type {
   ActionInfo,
@@ -53,25 +52,25 @@ const post = async <T>(path: string, body: unknown, signal?: AbortSignal): Promi
 const get = async <T>(path: string): Promise<T> => (await request(path)).json()
 
 export const api = {
-  config: async (): Promise<AppConfig> => (await fetch('/api/config')).json(),
+  config: async (): Promise<AppConfig> => (await fetch('api/config')).json(),
 
   search: (filter: TaskFilter, page: number, pageSize: number, sort: Sort, signal?: AbortSignal) =>
     post<TaskSearchResult>(
-      '/api/tasks/search',
+      'api/tasks/search',
       { filter, page, pageSize, sortField: sort.field, sortDir: sort.dir },
       signal,
     ),
 
-  refs: (filter: TaskFilter) => post<TaskRefsResult>('/api/tasks/refs', filter),
+  refs: (filter: TaskFilter) => post<TaskRefsResult>('api/tasks/refs', filter),
 
-  facets: () => get<Facets>('/api/tasks/facets'),
+  facets: () => get<Facets>('api/tasks/facets'),
 
-  raw: (id: string) => get<unknown>(`/api/tasks/${encodeURIComponent(id)}/raw`),
+  raw: (id: string) => get<unknown>(`api/tasks/${encodeURIComponent(id)}/raw`),
 
-  actions: () => get<ActionInfo[]>('/api/actions'),
+  actions: () => get<ActionInfo[]>('api/actions'),
 
   exportCsv: async (filter: TaskFilter, sort: Sort) => {
-    const resp = await request('/api/tasks/export', {
+    const resp = await request('api/tasks/export', {
       method: 'POST',
       body: JSON.stringify({ filter, sortField: sort.field, sortDir: sort.dir }),
     })
@@ -81,17 +80,13 @@ export const api = {
   },
 
   startJob: (actionKey: string, parameters: Record<string, ParameterValue>, tasks: TaskRef[]) =>
-    post<{ jobId: string }>(`/api/actions/${encodeURIComponent(actionKey)}/jobs`, { parameters, tasks }),
+    post<{ jobId: string }>(`api/actions/${encodeURIComponent(actionKey)}/jobs`, { parameters, tasks }),
 
-  jobs: () => get<JobSnapshot[]>('/api/jobs'),
+  jobs: () => get<JobSnapshot[]>('api/jobs'),
 
-  cancelJob: (jobId: string) => request(`/api/jobs/${jobId}/cancel`, { method: 'POST' }),
+  cancelJob: (jobId: string) => request(`api/jobs/${jobId}/cancel`, { method: 'POST' }),
 }
 
-/**
- * Połączenie WebSocket (SignalR) do śledzenia postępu joba.
- * Po ponownym połączeniu subskrypcja jest odnawiana, a snapshot uzupełnia ewentualnie pominięte wyniki.
- */
 export async function watchJob(
   jobId: string,
   handlers: {
@@ -101,8 +96,9 @@ export async function watchJob(
     onConnection?: (state: 'connected' | 'reconnecting' | 'disconnected') => void
   },
 ): Promise<() => Promise<void>> {
+  const { HubConnectionBuilder, LogLevel } = await import('@microsoft/signalr')
   const connection = new HubConnectionBuilder()
-    .withUrl('/hubs/jobs', { accessTokenFactory: async () => (await getAccessToken()) ?? '' })
+    .withUrl('hubs/jobs', { accessTokenFactory: async () => (await getAccessToken()) ?? '' })
     .withAutomaticReconnect([0, 1000, 2000, 5000, 10000, 10000, 30000])
     .configureLogging(LogLevel.Warning)
     .build()

@@ -1,5 +1,4 @@
 {
-  // Wersja deweloperska - wskazuje na mock w tej samej aplikacji (losowo zwraca błędy 404/409/500).
   "actions": [
     {
       "key": "finish-as-administrator",

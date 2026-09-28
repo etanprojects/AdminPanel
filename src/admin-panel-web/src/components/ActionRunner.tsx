@@ -30,7 +30,7 @@ import {
   IconPlugConnectedX,
   IconSelect,
 } from '../icons'
-import { useEffect, useMemo, useRef, useState } from 'react'
+import { Fragment, useEffect, useMemo, useRef, useState } from 'react'
 import { api, watchJob } from '../api'
 import type {
   ActionInfo,
@@ -48,7 +48,6 @@ type JobInfo = Omit<JobSnapshot, 'results'>
 const MAX_VISIBLE_RESULTS = 500
 
 interface Props {
-  /** Nowe uruchomienie: akcja + zadania. Podgląd istniejącego joba (np. z historii): jobId. */
   action?: ActionInfo
   tasks?: TaskRef[]
   jobId?: string
@@ -62,7 +61,6 @@ function defaults(params: ActionParameter[]): Record<string, ParameterValue> {
   )
 }
 
-/** Podgląd body dla pierwszego zadania - to samo podstawianie co na backendzie (uproszczone). */
 function preview(template: unknown, task: TaskRef | undefined, params: Record<string, ParameterValue>): unknown {
   const resolve = (name: string): unknown => {
     const [scope, key] = name.split('.', 2)
@@ -97,14 +95,12 @@ export function ActionRunner({ action, tasks = [], jobId: existingJobId, onClose
   const [view, setView] = useState<'all' | 'errors'>('all')
   const [, setTick] = useState(0)
 
-  // wyniki po indeksie (deduplikacja snapshot + zdarzenia); do stanu React co 200 ms
   const resultsRef = useRef(new Map<number, ExecutionResult>())
   const dirtyRef = useRef(false)
 
   const title = action?.name ?? job?.actionName ?? 'Akcja'
   const total = job?.total ?? tasks.length
 
-  // ostrzeżenie przy zamykaniu karty (job i tak działa dalej na serwerze)
   useEffect(() => {
     if (phase !== 'running') return
     const handler = (e: BeforeUnloadEvent) => e.preventDefault()
@@ -112,7 +108,6 @@ export function ActionRunner({ action, tasks = [], jobId: existingJobId, onClose
     return () => window.removeEventListener('beforeunload', handler)
   }, [phase])
 
-  // subskrypcja postępu przez WebSocket (SignalR)
   useEffect(() => {
     if (!jobId) return
     let stopConnection: (() => Promise<void>) | null = null
@@ -174,6 +169,10 @@ export function ActionRunner({ action, tasks = [], jobId: existingJobId, onClose
     (p) => p.required && (params[p.name] === null || params[p.name] === '' || params[p.name] === undefined),
   )
   const canRun = !!action && tasks.length > 0 && missingRequired.length === 0 && confirmed
+  const blockers = [
+    ...missingRequired.map((p) => `uzupełnij „${p.label}”`),
+    ...(tasks.length > 0 && !confirmed ? ['zaznacz potwierdzenie'] : []),
+  ]
 
   const run = async () => {
     if (!action) return
@@ -244,7 +243,7 @@ export function ActionRunner({ action, tasks = [], jobId: existingJobId, onClose
           : 'Zakończono'
 
   const field = (p: ActionParameter) => {
-    const common = { label: p.label, description: p.description, required: p.required, key: p.name }
+    const common = { label: p.label, description: p.description, required: p.required }
     const set = (v: ParameterValue) => setParams((prev) => ({ ...prev, [p.name]: v }))
     switch (p.type) {
       case 'boolean':
@@ -326,7 +325,9 @@ export function ActionRunner({ action, tasks = [], jobId: existingJobId, onClose
             </Code>
           </Paper>
 
-          {action.parameters.map(field)}
+          {action.parameters.map((p) => (
+            <Fragment key={p.name}>{field(p)}</Fragment>
+          ))}
 
           {total === 0 ? (
             <Alert color="yellow">Nie zaznaczono żadnych zadań.</Alert>
@@ -347,23 +348,23 @@ export function ActionRunner({ action, tasks = [], jobId: existingJobId, onClose
           )}
 
           <Group justify="flex-end">
+            {blockers.length > 0 && (
+              <Text size="sm" c="orange">
+                Aby uruchomić: {blockers.join(', ')}
+              </Text>
+            )}
             <Button variant="default" onClick={() => onClose(false)}>
               Anuluj
             </Button>
-            <Tooltip
-              label={`Uzupełnij: ${missingRequired.map((p) => p.label).join(', ')}`}
-              disabled={missingRequired.length === 0}
+            <Button
+              color={action.color ?? 'blue'}
+              leftSection={<IconPlayerPlay size={16} />}
+              disabled={!canRun}
+              loading={starting}
+              onClick={run}
             >
-              <Button
-                color={action.color ?? 'blue'}
-                leftSection={<IconPlayerPlay size={16} />}
-                disabled={!canRun}
-                loading={starting}
-                onClick={run}
-              >
-                Uruchom
-              </Button>
-            </Tooltip>
+              Uruchom
+            </Button>
           </Group>
         </Stack>
       )}

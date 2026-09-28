@@ -1,4 +1,4 @@
-using System.Diagnostics;
+﻿using System.Diagnostics;
 using System.Net.Http.Headers;
 using System.Text;
 using System.Text.Json;
@@ -9,10 +9,6 @@ using Microsoft.Extensions.Options;
 
 namespace AdminPanel.Api.Actions;
 
-/// <summary>
-/// Wykonuje akcję dla listy zadań: po jednym requeście HTTP na zadanie, z ograniczoną równoległością.
-/// Wyniki są publikowane na bieżąco (kanał), żeby UI mogło pokazywać postęp.
-/// </summary>
 public sealed class ActionExecutor(
     IHttpClientFactory httpFactory,
     ClientCredentialsTokenProvider ccTokens,
@@ -130,7 +126,6 @@ public sealed class ActionExecutor(
         }
     }
 
-    /// <summary>Wyciąga czytelny komunikat z typowych formatów błędów (ProblemDetails, {message}, {error}).</summary>
     private static string DescribeError(HttpResponseMessage resp, string body)
     {
         var prefix = $"HTTP {(int)resp.StatusCode} {resp.ReasonPhrase}";
@@ -155,7 +150,7 @@ public sealed class ActionExecutor(
                 if (parts.Count > 0) return Truncate($"{prefix}: {string.Join(" | ", parts.Distinct())}");
             }
         }
-        catch (JsonException) { /* nie-JSON - zwracamy surowy tekst */ }
+        catch (JsonException) { }
 
         return Truncate($"{prefix}: {body.Trim()}");
     }

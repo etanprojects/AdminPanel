@@ -1,8 +1,3 @@
-/**
- * Ikony wycięte z Tabler Icons v3 (MIT, https://tabler.io/icons) - lokalnie, żeby nie pobierać
- * całego pakietu @tabler/icons (tysiące plików, problem w sieci firmowej).
- * Nowa ikona: skopiuj elementy SVG ze strony tabler.io/icons i dodaj wpis poniżej.
- */
 import type { SVGProps } from 'react'
 
 type Node = [tag: string, attrs: Record<string, string>]
@@ -61,3 +56,4 @@ export const IconSelect = icon('IconSelect', [["path",{"d":"M3 5a2 2 0 0 1 2 -2h
 export const IconSelector = icon('IconSelector', [["path",{"d":"M8 9l4 -4l4 4"}],["path",{"d":"M16 15l-4 4l-4 -4"}]])
 export const IconSquareOff = icon('IconSquareOff', [["path",{"d":"M8 4h10a2 2 0 0 1 2 2v10m-.584 3.412a2 2 0 0 1 -1.416 .588h-12a2 2 0 0 1 -2 -2v-12c0 -.552 .224 -1.052 .586 -1.414"}],["path",{"d":"M3 3l18 18"}]])
 export const IconSun = icon('IconSun', [["path",{"d":"M8 12a4 4 0 1 0 8 0a4 4 0 1 0 -8 0"}],["path",{"d":"M3 12h1m8 -9v1m8 8h1m-9 8v1m-6.4 -15.4l.7 .7m12.1 -.7l-.7 .7m0 11.4l.7 .7m-12.1 -.7l-.7 .7"}]])
+export const IconCalendar = icon('IconCalendar', [["path",{"d":"M4 7a2 2 0 0 1 2 -2h12a2 2 0 0 1 2 2v12a2 2 0 0 1 -2 2h-12a2 2 0 0 1 -2 -2v-12z"}],["path",{"d":"M16 3v4"}],["path",{"d":"M8 3v4"}],["path",{"d":"M4 11h16"}]])

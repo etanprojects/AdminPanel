@@ -1,14 +1,10 @@
-using System.Text.Json;
+﻿using System.Text.Json;
 using System.Text.Json.Nodes;
 using System.Text.RegularExpressions;
 using AdminPanel.Api.Tasks;
 
 namespace AdminPanel.Api.Actions;
 
-/// <summary>
-/// Podstawianie placeholderów w szablonach akcji:
-/// <c>{{task.id}}</c>, <c>{{task.workflowId}}</c>, <c>{{task.instanceId}}</c>, <c>{{task.processId}}</c>, <c>{{param.NAZWA}}</c>.
-/// </summary>
 public static partial class ActionTemplate
 {
     [GeneratedRegex(@"\{\{\s*([a-zA-Z0-9_.]+)\s*\}\}")]

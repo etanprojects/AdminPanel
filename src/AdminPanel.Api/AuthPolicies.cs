@@ -1,10 +1,9 @@
-using System.Security.Claims;
+﻿using System.Security.Claims;
 
 namespace AdminPanel.Api;
 
 public static class AuthPolicies
 {
-    /// <summary>Dostęp do aplikacji: zalogowany użytkownik (+ opcjonalnie Auth:RequiredRole).</summary>
     public const string App = "app";
 
     public static string DisplayName(this ClaimsPrincipal user) =>

@@ -1,6 +1,8 @@
-import { Checkbox, CloseButton, MultiSelect, SimpleGrid, TextInput } from '@mantine/core'
-import { DateTimePicker, type DatesRangeValue } from '@mantine/dates'
+import { ActionIcon, Checkbox, CloseButton, Group, Input, Menu, MultiSelect, SimpleGrid, TextInput } from '@mantine/core'
+import { DateTimePicker } from '@mantine/dates'
 import dayjs from 'dayjs'
+import { memo, useMemo } from 'react'
+import { IconCalendar } from '../icons'
 import type { Facets, FacetValue, TaskFilter } from '../types'
 import { toApiDate } from '../utils'
 
@@ -57,16 +59,71 @@ export function countActiveFilters(f: FilterState): number {
 }
 
 const FMT = 'YYYY-MM-DD HH:mm:ss'
-const presets = [
-  { label: 'Dzisiaj', value: [dayjs().startOf('day').format(FMT), dayjs().endOf('day').format(FMT)] },
-  { label: 'Ostatnie 24 h', value: [dayjs().subtract(24, 'hour').format(FMT), dayjs().endOf('day').format(FMT)] },
-  { label: 'Ostatnie 7 dni', value: [dayjs().subtract(7, 'day').startOf('day').format(FMT), dayjs().endOf('day').format(FMT)] },
-  { label: 'Ostatnie 30 dni', value: [dayjs().subtract(30, 'day').startOf('day').format(FMT), dayjs().endOf('day').format(FMT)] },
-  { label: 'Starsze niż 30 dni', value: [dayjs('2000-01-01').format(FMT), dayjs().subtract(30, 'day').endOf('day').format(FMT)] },
-] as { label: string; value: DatesRangeValue<string> }[]
+
+const presets: { label: string; range: () => Range }[] = [
+  { label: 'Dzisiaj', range: () => [dayjs().startOf('day').format(FMT), null] },
+  { label: 'Ostatnie 24 h', range: () => [dayjs().subtract(24, 'hour').format(FMT), null] },
+  { label: 'Ostatnie 7 dni', range: () => [dayjs().subtract(7, 'day').startOf('day').format(FMT), null] },
+  { label: 'Ostatnie 30 dni', range: () => [dayjs().subtract(30, 'day').startOf('day').format(FMT), null] },
+  { label: 'Starsze niż 7 dni', range: () => [null, dayjs().subtract(7, 'day').endOf('day').format(FMT)] },
+  { label: 'Starsze niż 30 dni', range: () => [null, dayjs().subtract(30, 'day').endOf('day').format(FMT)] },
+]
 
 const facetData = (values: FacetValue[] | undefined) =>
   (values ?? []).map((v) => ({ value: v.value, label: `${v.value} (${v.count})` }))
+
+interface DateRangeProps {
+  label: string
+  value: Range
+  onChange: (value: Range) => void
+}
+
+const DateRangeFilter = memo(function DateRangeFilter({ label, value, onChange }: DateRangeProps) {
+  const [from, to] = value
+  const invalid = from && to && from > to
+  return (
+    <Input.Wrapper label={label} error={invalid ? '„Od” jest późniejsze niż „Do”' : undefined}>
+      <Group gap={6} wrap="nowrap" align="flex-start">
+        <DateTimePicker
+          style={{ flex: 1 }}
+          placeholder="Od"
+          aria-label={`${label} od`}
+          value={from}
+          onChange={(v) => onChange([v, to])}
+          valueFormat="DD.MM.YYYY HH:mm"
+          defaultTimeValue="00:00"
+          clearable
+          error={!!invalid}
+        />
+        <DateTimePicker
+          style={{ flex: 1 }}
+          placeholder="Do"
+          aria-label={`${label} do`}
+          value={to}
+          onChange={(v) => onChange([from, v ? v.replace(/:00$/, ':59') : null])}
+          valueFormat="DD.MM.YYYY HH:mm"
+          defaultTimeValue="23:59"
+          clearable
+          error={!!invalid}
+        />
+        <Menu position="bottom-end" withinPortal>
+          <Menu.Target>
+            <ActionIcon variant="default" size="lg" aria-label="Szybki wybór zakresu">
+              <IconCalendar size={16} />
+            </ActionIcon>
+          </Menu.Target>
+          <Menu.Dropdown>
+            {presets.map((p) => (
+              <Menu.Item key={p.label} onClick={() => onChange(p.range())}>
+                {p.label}
+              </Menu.Item>
+            ))}
+          </Menu.Dropdown>
+        </Menu>
+      </Group>
+    </Input.Wrapper>
+  )
+})
 
 interface Props {
   value: FilterState
@@ -74,24 +131,12 @@ interface Props {
   facets?: Facets
 }
 
-export function FilterPanel({ value, onChange, facets }: Props) {
+export const FilterPanel = memo(function FilterPanel({ value, onChange, facets }: Props) {
   const set = <K extends keyof FilterState>(key: K, v: FilterState[K]) => onChange({ ...value, [key]: v })
 
-  const dateRange = (key: 'created' | 'updated', label: string) => (
-    <DateTimePicker
-      type="range"
-      label={label}
-      placeholder="Od – do"
-      value={value[key]}
-      // koniec zakresu bez wybranej godziny (00:00) traktujemy jako cały dzień
-      onChange={(v) => set(key, [v[0] ?? null, v[1]?.endsWith('00:00:00') ? v[1].replace('00:00:00', '23:59:59') : (v[1] ?? null)])}
-      valueFormat="DD.MM.YYYY HH:mm"
-      presets={presets}
-      clearable
-      allowSingleDateInRange
-      defaultTimeValue="00:00"
-    />
-  )
+  const processData = useMemo(() => facetData(facets?.processNames), [facets])
+  const stepData = useMemo(() => facetData(facets?.stepNames), [facets])
+  const handledData = useMemo(() => facetData(facets?.handledByNames), [facets])
 
   const clearable = (key: 'id' | 'workflowId') =>
     value[key] ? <CloseButton size="sm" onClick={() => set(key, '')} aria-label="Wyczyść" /> : null
@@ -112,12 +157,12 @@ export function FilterPanel({ value, onChange, facets }: Props) {
         onChange={(e) => set('workflowId', e.currentTarget.value)}
         rightSection={clearable('workflowId')}
       />
-      {dateRange('created', 'Data utworzenia')}
-      {dateRange('updated', 'Data modyfikacji')}
+      <DateRangeFilter label="Data utworzenia" value={value.created} onChange={(v) => set('created', v)} />
+      <DateRangeFilter label="Data modyfikacji" value={value.updated} onChange={(v) => set('updated', v)} />
       <MultiSelect
         label="Nazwa procesu"
         placeholder={value.processNames.length ? undefined : 'wszystkie'}
-        data={facetData(facets?.processNames)}
+        data={processData}
         value={value.processNames}
         onChange={(v) => set('processNames', v)}
         searchable
@@ -127,7 +172,7 @@ export function FilterPanel({ value, onChange, facets }: Props) {
       <MultiSelect
         label="Krok procesu"
         placeholder={value.stepNames.length ? undefined : 'wszystkie'}
-        data={facetData(facets?.stepNames)}
+        data={stepData}
         value={value.stepNames}
         onChange={(v) => set('stepNames', v)}
         searchable
@@ -137,7 +182,7 @@ export function FilterPanel({ value, onChange, facets }: Props) {
       <MultiSelect
         label="Pobrane przez"
         placeholder={value.handledByNames.length || value.notHandled ? undefined : 'wszyscy'}
-        data={facetData(facets?.handledByNames)}
+        data={handledData}
         value={value.notHandled ? [] : value.handledByNames}
         onChange={(v) => set('handledByNames', v)}
         disabled={value.notHandled}
@@ -153,4 +198,4 @@ export function FilterPanel({ value, onChange, facets }: Props) {
       />
     </SimpleGrid>
   )
-}
+})

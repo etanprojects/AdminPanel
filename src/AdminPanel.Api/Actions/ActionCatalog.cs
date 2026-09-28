@@ -1,13 +1,9 @@
-using System.Text.Json;
+﻿using System.Text.Json;
 using System.Text.Json.Serialization;
 using Microsoft.Extensions.Options;
 
 namespace AdminPanel.Api.Actions;
 
-/// <summary>
-/// Wczytuje definicje akcji z pliku JSON. Plik jest przeładowywany automatycznie po zmianie
-/// (bez restartu aplikacji), więc nowe typy akcji dodaje się edytując actions.json.
-/// </summary>
 public sealed class ActionCatalog(IOptions<ExecutionOptions> options, IHostEnvironment env, ILogger<ActionCatalog> log)
 {
     private static readonly JsonSerializerOptions JsonOptions = new(JsonSerializerDefaults.Web)
@@ -21,16 +17,25 @@ public sealed class ActionCatalog(IOptions<ExecutionOptions> options, IHostEnvir
     private DateTime _loadedWriteTime;
     private IReadOnlyList<ActionDefinition> _actions = [];
 
-    private string FilePath => Path.IsPathRooted(options.Value.ActionsFile)
-        ? options.Value.ActionsFile
-        : Path.Combine(env.ContentRootPath, options.Value.ActionsFile);
+    private IEnumerable<string> CandidatePaths()
+    {
+        var file = options.Value.ActionsFile;
+        if (Path.IsPathRooted(file))
+        {
+            yield return file;
+            yield break;
+        }
+        yield return Path.Combine(env.ContentRootPath, file);
+        yield return Path.Combine(AppContext.BaseDirectory, file);
+    }
 
     public IReadOnlyList<ActionDefinition> GetAll()
     {
-        var path = FilePath;
-        if (!File.Exists(path))
+        var candidates = CandidatePaths().Distinct(StringComparer.OrdinalIgnoreCase).ToList();
+        var path = candidates.FirstOrDefault(File.Exists);
+        if (path is null)
         {
-            log.LogWarning("Brak pliku z definicjami akcji: {Path}", path);
+            log.LogWarning("Brak pliku z definicjami akcji. Sprawdzone ścieżki: {Paths}", string.Join("; ", candidates));
             return [];
         }
 

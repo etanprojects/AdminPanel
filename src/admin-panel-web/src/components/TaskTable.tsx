@@ -1,7 +1,7 @@
 import { Center, Checkbox, Group, LoadingOverlay, Text } from '@mantine/core'
 import { IconArrowDown, IconArrowUp, IconSelector } from '../icons'
 import { useVirtualizer } from '@tanstack/react-virtual'
-import { memo, useRef } from 'react'
+import { memo, useMemo, useRef } from 'react'
 import type { Sort, SortField, TaskDto, TaskRef } from '../types'
 import { formatDate } from '../utils'
 
@@ -32,13 +32,10 @@ interface Props {
   selected: Map<string, TaskRef>
   onToggle: (tasks: TaskDto[], checked: boolean) => void
   onOpen: (task: TaskDto) => void
+  emptyMessage?: string
 }
 
-/**
- * Tabela wirtualizowana - renderuje tylko widoczne wiersze, więc 10 000 zadań na jednej liście
- * nie spowalnia przeglądarki. Szerokości kolumn stałe (table-layout: fixed), tekst obcinany z tooltipem.
- */
-export function TaskTable({ items, loading, sort, onSort, selected, onToggle, onOpen }: Props) {
+export const TaskTable = memo(function TaskTable({ items, loading, sort, onSort, selected, onToggle, onOpen, emptyMessage }: Props) {
   const scrollRef = useRef<HTMLDivElement>(null)
   const virtualizer = useVirtualizer({
     count: items.length,
@@ -47,7 +44,10 @@ export function TaskTable({ items, loading, sort, onSort, selected, onToggle, on
     overscan: 20,
   })
 
-  const selectedCount = selected.size === 0 ? 0 : items.reduce((n, t) => n + (selected.has(t.id) ? 1 : 0), 0)
+  const selectedCount = useMemo(
+    () => (selected.size === 0 ? 0 : items.reduce((n, t) => n + (selected.has(t.id) ? 1 : 0), 0)),
+    [items, selected],
+  )
   const allSelected = items.length > 0 && selectedCount === items.length
 
   const sortIcon = (field: SortField) => {
@@ -61,7 +61,7 @@ export function TaskTable({ items, loading, sort, onSort, selected, onToggle, on
 
   return (
     <div ref={scrollRef} className="task-scroll">
-      <LoadingOverlay visible={loading} zIndex={5} overlayProps={{ blur: 1 }} />
+      <LoadingOverlay visible={loading} zIndex={5} overlayProps={{ backgroundOpacity: 0.3 }} transitionProps={{ duration: 0 }} />
       <table className="task-table">
         <colgroup>
           <col style={{ width: 40 }} />
@@ -121,12 +121,14 @@ export function TaskTable({ items, loading, sort, onSort, selected, onToggle, on
       </table>
       {!loading && items.length === 0 && (
         <Center py="xl">
-          <Text c="dimmed">Brak zadań spełniających kryteria.</Text>
+          <Text c="dimmed" ta="center" maw={520}>
+            {emptyMessage ?? 'Brak zadań spełniających kryteria.'}
+          </Text>
         </Center>
       )}
     </div>
   )
-}
+})
 
 const Row = memo(function Row({
   task,

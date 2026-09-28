@@ -5,76 +5,70 @@ import {
   Badge,
   Button,
   Center,
-  Code,
   Collapse,
-  Drawer,
   Group,
   Loader,
   Menu,
   Paper,
-  ScrollArea,
   Stack,
   Switch,
   Text,
-  TextInput,
   Title,
   Tooltip,
   useMantineColorScheme,
 } from '@mantine/core'
 import { useDebouncedValue } from '@mantine/hooks'
 import { notifications } from '@mantine/notifications'
+import { lazy, Suspense, startTransition, useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import { api } from './api'
+import { getUserName } from './auth'
+import { countActiveFilters, emptyFilters, FilterPanel, toTaskFilter, type FilterState } from './components/FilterPanel'
+import { QueryBar } from './components/QueryBar'
+import { TaskTable, toRef } from './components/TaskTable'
 import {
   IconBolt,
-  IconChevronDown,
-  IconChevronUp,
   IconFileExport,
-  IconFilter,
-  IconFilterOff,
-  IconHelp,
   IconHistory,
   IconListCheck,
-  IconLogout,
   IconMoon,
   IconRefresh,
-  IconSearch,
   IconSquareOff,
   IconSun,
 } from './icons'
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
-import { api } from './api'
-import { getUserName, isAuthEnabled, logout } from './auth'
-import { ActionRunner } from './components/ActionRunner'
-import { countActiveFilters, emptyFilters, FilterPanel, toTaskFilter, type FilterState } from './components/FilterPanel'
-import { TaskTable, toRef } from './components/TaskTable'
 import type { ActionInfo, AppConfig, Facets, JobSnapshot, Sort, TaskDto, TaskFilter, TaskRef } from './types'
 import { downloadBlob, formatDate, plural } from './utils'
 
-/** Maksymalna liczba zadań prezentowana na liście (limit okna wyników Elasticsearcha). */
+const ActionRunner = lazy(() => import('./components/ActionRunner').then((m) => ({ default: m.ActionRunner })))
+const TaskPreview = lazy(() => import('./components/TaskPreview').then((m) => ({ default: m.TaskPreview })))
+
 const LIST_LIMIT = 10000
 
 const fmt = (n: number) => n.toLocaleString('pl-PL')
+
+const hasAnyValue = (f: TaskFilter) => Object.values(f).some((v) => v !== undefined)
 
 type Runner = { action: ActionInfo; tasks: TaskRef[] } | { jobId: string }
 
 export default function App({ config }: { config: AppConfig }) {
   const { colorScheme, toggleColorScheme } = useMantineColorScheme()
 
-  // ------------------------------------------------------------ filtry
-  const [queryInput, setQueryInput] = useState('')
   const [query, setQuery] = useState('')
   const [filters, setFilters] = useState<FilterState>(emptyFilters)
-  const [debouncedFilters] = useDebouncedValue(filters, 400)
+  const [debouncedText] = useDebouncedValue(`${filters.id}\u0000${filters.workflowId}`, 350)
   const [filtersOpen, setFiltersOpen] = useState(true)
-  // snapshot Id zadań dla trybu "Pokaż tylko zaznaczone" (null = tryb wyłączony)
   const [onlyIds, setOnlyIds] = useState<string[] | null>(null)
 
-  const baseFilter = useMemo(() => toTaskFilter(debouncedFilters, query), [debouncedFilters, query])
+  const baseFilter = useMemo(() => {
+    const [id, workflowId] = debouncedText.split('\u0000')
+    return toTaskFilter({ ...filters, id, workflowId }, query)
+  }, [debouncedText, query, filters.processNames, filters.stepNames, filters.handledByNames, filters.notHandled, filters.created, filters.updated])
+
   const effectiveFilter: TaskFilter = useMemo(
     () => (onlyIds ? { ...baseFilter, ids: onlyIds } : baseFilter),
     [baseFilter, onlyIds],
   )
+  const hasCriteria = hasAnyValue(effectiveFilter)
 
-  // ------------------------------------------------------------ dane
   const [sort, setSort] = useState<Sort>({ field: 'createdAt', dir: 'desc' })
   const [items, setItems] = useState<TaskDto[]>([])
   const [total, setTotal] = useState(0)
@@ -85,12 +79,11 @@ export default function App({ config }: { config: AppConfig }) {
   const [actions, setActions] = useState<ActionInfo[]>([])
   const [userName, setUserName] = useState<string | null>(null)
 
-  // ------------------------------------------------------------ zaznaczenie / akcje
   const [selected, setSelected] = useState<Map<string, TaskRef>>(new Map())
   const [selectingAll, setSelectingAll] = useState(false)
   const [runner, setRunner] = useState<Runner | null>(null)
   const [jobs, setJobs] = useState<JobSnapshot[] | null>(null)
-  const [preview, setPreview] = useState<{ task: TaskDto; raw?: unknown; error?: string } | null>(null)
+  const [previewTask, setPreviewTask] = useState<TaskDto | null>(null)
   const [exporting, setExporting] = useState(false)
 
   useEffect(() => {
@@ -99,29 +92,38 @@ export default function App({ config }: { config: AppConfig }) {
     api.actions().then(setActions).catch((e) => notifications.show({ color: 'red', title: 'Definicje akcji', message: e.message }))
   }, [])
 
-  // zmiana kryteriów = nowy zbiór wyników -> czyścimy zaznaczenie (żeby nie wykonać akcji na "niewidocznych" zadaniach)
   const filterKey = JSON.stringify(baseFilter)
   const prevFilterKey = useRef(filterKey)
+  const selectedRef = useRef(selected)
+  selectedRef.current = selected
   useEffect(() => {
     if (prevFilterKey.current === filterKey) return
     prevFilterKey.current = filterKey
     setOnlyIds(null)
-    setSelected((prev) => {
-      if (prev.size === 0) return prev
-      notifications.show({ color: 'gray', message: `Zmieniono filtry - wyczyszczono zaznaczenie (${fmt(prev.size)}).` })
-      return new Map()
-    })
+    const count = selectedRef.current.size
+    if (count === 0) return
+    setSelected(new Map())
+    notifications.show({ color: 'gray', message: `Zmieniono filtry - wyczyszczono zaznaczenie (${fmt(count)}).` })
   }, [filterKey])
 
   useEffect(() => {
+    if (!hasCriteria) {
+      setItems([])
+      setTotal(0)
+      setLoading(false)
+      setError(null)
+      return
+    }
     const controller = new AbortController()
     setLoading(true)
     api
       .search(effectiveFilter, 1, LIST_LIMIT, sort, controller.signal)
       .then((r) => {
-        setItems(r.items)
-        setTotal(r.total)
-        setError(null)
+        startTransition(() => {
+          setItems(r.items)
+          setTotal(r.total)
+          setError(null)
+        })
       })
       .catch((e) => {
         if (!controller.signal.aborted) setError(e.message)
@@ -130,7 +132,22 @@ export default function App({ config }: { config: AppConfig }) {
         if (!controller.signal.aborted) setLoading(false)
       })
     return () => controller.abort()
-  }, [effectiveFilter, sort, reloadKey])
+  }, [effectiveFilter, hasCriteria, sort, reloadKey])
+
+  const queryRef = useRef(query)
+  queryRef.current = query
+  const search = useCallback((q: string) => {
+    const value = q.trim()
+    if (value === queryRef.current) setReloadKey((k) => k + 1)
+    else setQuery(value)
+  }, [])
+
+  const toggleFilters = useCallback(() => setFiltersOpen((o) => !o), [])
+
+  const clearFilters = useCallback(() => {
+    setFilters(emptyFilters)
+    setQuery('')
+  }, [])
 
   const toggle = useCallback((tasks: TaskDto[], checked: boolean) => {
     setSelected((prev) => {
@@ -143,16 +160,7 @@ export default function App({ config }: { config: AppConfig }) {
     })
   }, [])
 
-  const openPreview = useCallback((task: TaskDto) => {
-    setPreview({ task })
-    api
-      .raw(task.id)
-      .then((raw) => setPreview((p) => (p?.task.id === task.id ? { ...p, raw } : p)))
-      .catch((e) => setPreview((p) => (p?.task.id === task.id ? { ...p, error: e.message } : p)))
-  }, [])
-
   const selectAllResults = async () => {
-    // wszystkie wyniki są już na liście - bez dodatkowego zapytania
     if (total <= items.length) {
       setSelected(new Map(items.map((t) => [t.id, toRef(t)])))
       return
@@ -185,12 +193,6 @@ export default function App({ config }: { config: AppConfig }) {
     } finally {
       setExporting(false)
     }
-  }
-
-  const clearFilters = () => {
-    setFilters(emptyFilters)
-    setQuery('')
-    setQueryInput('')
   }
 
   const activeFilters = countActiveFilters(filters)
@@ -227,7 +229,9 @@ export default function App({ config }: { config: AppConfig }) {
                   <Menu.Item key={j.jobId} onClick={() => setRunner({ jobId: j.jobId })}>
                     <Group justify="space-between" wrap="nowrap">
                       <div>
-                        <Text size="sm" fw={500}>{j.actionName}</Text>
+                        <Text size="sm" fw={500}>
+                          {j.actionName}
+                        </Text>
                         <Text size="xs" c="dimmed">
                           {formatDate(j.startedAt)} · {j.startedBy}
                         </Text>
@@ -236,8 +240,12 @@ export default function App({ config }: { config: AppConfig }) {
                         <Badge size="sm" color={j.state === 'Running' ? 'blue' : j.state === 'Completed' ? 'green' : 'orange'}>
                           {j.state === 'Running' ? `${j.processed}/${j.total}` : j.state}
                         </Badge>
-                        <Badge size="sm" color="green" variant="light">{j.succeeded}</Badge>
-                        <Badge size="sm" color="red" variant="light">{j.failed}</Badge>
+                        <Badge size="sm" color="green" variant="light">
+                          {j.succeeded}
+                        </Badge>
+                        <Badge size="sm" color="red" variant="light">
+                          {j.failed}
+                        </Badge>
                       </Group>
                     </Group>
                   </Menu.Item>
@@ -248,13 +256,6 @@ export default function App({ config }: { config: AppConfig }) {
             <ActionIcon variant="subtle" color="gray" onClick={toggleColorScheme} aria-label="Motyw">
               {colorScheme === 'dark' ? <IconSun size={18} /> : <IconMoon size={18} />}
             </ActionIcon>
-            {isAuthEnabled() && (
-              <Tooltip label="Wyloguj">
-                <ActionIcon variant="subtle" color="gray" onClick={logout} aria-label="Wyloguj">
-                  <IconLogout size={18} />
-                </ActionIcon>
-              </Tooltip>
-            )}
           </Group>
         </Group>
       </AppShell.Header>
@@ -263,57 +264,14 @@ export default function App({ config }: { config: AppConfig }) {
         <Stack gap="sm">
           <Paper withBorder p="sm">
             <Stack gap="sm">
-              <Group gap="xs" align="flex-end" wrap="nowrap">
-                <TextInput
-                  style={{ flex: 1 }}
-                  label="Query string"
-                  placeholder='np. keywords:"XXVIII C 11648/21" AND state:2001   (Enter - szukaj)'
-                  leftSection={<IconSearch size={16} />}
-                  rightSection={
-                    <Tooltip
-                      multiline
-                      w={420}
-                      label={
-                        <>
-                          Składnia Elasticsearch query_string, domyślnie AND. Przykłady:
-                          <br />• ZAP-40401
-                          <br />• keywords:"Irena Głowienka"
-                          <br />• participants:PZ007385 AND NOT handledBy:PZ007385
-                          <br />• slots.s0.stringValue:73370
-                          <br />• state:2001 AND processName:Zapytanie*
-                        </>
-                      }
-                    >
-                      <IconHelp size={16} style={{ cursor: 'help' }} />
-                    </Tooltip>
-                  }
-                  classNames={{ input: 'mono' }}
-                  value={queryInput}
-                  onChange={(e) => setQueryInput(e.currentTarget.value)}
-                  onKeyDown={(e) => e.key === 'Enter' && setQuery(queryInput)}
-                />
-                <Button onClick={() => setQuery(queryInput)} leftSection={<IconSearch size={16} />}>
-                  Szukaj
-                </Button>
-                <Button
-                  variant={filtersOpen ? 'light' : 'default'}
-                  leftSection={<IconFilter size={16} />}
-                  rightSection={
-                    <Group gap={6} wrap="nowrap">
-                      {activeFilters > 0 && <Badge size="sm" circle>{activeFilters}</Badge>}
-                      {filtersOpen ? <IconChevronUp size={14} /> : <IconChevronDown size={14} />}
-                    </Group>
-                  }
-                  onClick={() => setFiltersOpen((o) => !o)}
-                >
-                  Filtry
-                </Button>
-                <Tooltip label="Wyczyść wszystkie filtry">
-                  <ActionIcon size="lg" variant="default" disabled={activeFilters === 0 && !query} onClick={clearFilters}>
-                    <IconFilterOff size={18} />
-                  </ActionIcon>
-                </Tooltip>
-              </Group>
+              <QueryBar
+                query={query}
+                onSearch={search}
+                filtersOpen={filtersOpen}
+                onToggleFilters={toggleFilters}
+                activeFilters={activeFilters}
+                onClear={clearFilters}
+              />
               <Collapse expanded={filtersOpen}>
                 <FilterPanel value={filters} onChange={setFilters} facets={facets} />
               </Collapse>
@@ -323,7 +281,7 @@ export default function App({ config }: { config: AppConfig }) {
           <Group justify="space-between">
             <Group gap="md">
               <Text fw={600}>
-                Znaleziono: {fmt(total)} {plural(total, 'zadanie', 'zadania', 'zadań')}
+                {hasCriteria ? `Znaleziono: ${fmt(total)} ${plural(total, 'zadanie', 'zadania', 'zadań')}` : 'Brak kryteriów wyszukiwania'}
                 {total > items.length && !loading && (
                   <Text span c="orange" size="sm" fw={400}>
                     {' '}
@@ -334,7 +292,13 @@ export default function App({ config }: { config: AppConfig }) {
               <Badge size="lg" variant={selected.size ? 'filled' : 'light'} color={selected.size ? 'blue' : 'gray'}>
                 Zaznaczono: {fmt(selected.size)}
               </Badge>
-              <Button size="xs" variant="light" loading={selectingAll} disabled={total === 0 || onlyIds !== null} onClick={selectAllResults}>
+              <Button
+                size="xs"
+                variant="light"
+                loading={selectingAll}
+                disabled={total === 0 || onlyIds !== null}
+                onClick={selectAllResults}
+              >
                 Zaznacz wszystkie wyniki ({fmt(allResults)})
               </Button>
               <Button
@@ -360,7 +324,7 @@ export default function App({ config }: { config: AppConfig }) {
             </Group>
             <Group gap="xs">
               <Tooltip label="Odśwież">
-                <ActionIcon variant="default" size="lg" onClick={() => setReloadKey((k) => k + 1)}>
+                <ActionIcon variant="default" size="lg" disabled={!hasCriteria} onClick={() => setReloadKey((k) => k + 1)}>
                   <IconRefresh size={18} />
                 </ActionIcon>
               </Tooltip>
@@ -389,8 +353,14 @@ export default function App({ config }: { config: AppConfig }) {
                   <Menu.Label>Akcja dla zaznaczonych zadań</Menu.Label>
                   {actions.map((a) => (
                     <Menu.Item key={a.key} color={a.color} onClick={() => setRunner({ action: a, tasks: [...selected.values()] })}>
-                      <Text size="sm" fw={500}>{a.name}</Text>
-                      {a.description && <Text size="xs" c="dimmed" maw={320}>{a.description}</Text>}
+                      <Text size="sm" fw={500}>
+                        {a.name}
+                      </Text>
+                      {a.description && (
+                        <Text size="xs" c="dimmed" maw={320}>
+                          {a.description}
+                        </Text>
+                      )}
                     </Menu.Item>
                   ))}
                 </Menu.Dropdown>
@@ -412,47 +382,40 @@ export default function App({ config }: { config: AppConfig }) {
               onSort={setSort}
               selected={selected}
               onToggle={toggle}
-              onOpen={openPreview}
+              onOpen={setPreviewTask}
+              emptyMessage={
+                hasCriteria
+                  ? undefined
+                  : 'Ustaw co najmniej jeden filtr albo wpisz zapytanie i kliknij „Szukaj”. Aby wyświetlić wszystkie zadania, wpisz * w query string.'
+              }
             />
           </Paper>
         </Stack>
       </AppShell.Main>
 
-      <Drawer
-        opened={preview !== null}
-        onClose={() => setPreview(null)}
-        position="right"
-        size="xl"
-        title={<Text fw={600}>Zadanie {preview?.task.workflowId}</Text>}
-        scrollAreaComponent={ScrollArea.Autosize}
-      >
-        {preview?.error && <Alert color="red">{preview.error}</Alert>}
-        {preview && !preview.error && (
-          <Code block style={{ whiteSpace: 'pre-wrap', wordBreak: 'break-word' }}>
-            {preview.raw ? JSON.stringify(preview.raw, null, 2) : 'Ładowanie…'}
-          </Code>
-        )}
-      </Drawer>
+      <Suspense fallback={null}>
+        {previewTask && <TaskPreview task={previewTask} onClose={() => setPreviewTask(null)} />}
 
-      {runner && (
-        <ActionRunner
-          key={'jobId' in runner ? runner.jobId : runner.action.key}
-          action={'action' in runner ? runner.action : undefined}
-          tasks={'tasks' in runner ? runner.tasks : undefined}
-          jobId={'jobId' in runner ? runner.jobId : undefined}
-          onSelectTasks={(tasks) => {
-            setSelected(new Map(tasks.map((t) => [t.id, t])))
-            setOnlyIds(tasks.map((t) => t.id))
-          }}
-          onClose={(executed) => {
-            setRunner(null)
-            if (executed) {
-              setReloadKey((k) => k + 1)
-              api.facets().then(setFacets).catch(() => {})
-            }
-          }}
-        />
-      )}
+        {runner && (
+          <ActionRunner
+            key={'jobId' in runner ? runner.jobId : runner.action.key}
+            action={'action' in runner ? runner.action : undefined}
+            tasks={'tasks' in runner ? runner.tasks : undefined}
+            jobId={'jobId' in runner ? runner.jobId : undefined}
+            onSelectTasks={(tasks) => {
+              setSelected(new Map(tasks.map((t) => [t.id, t])))
+              setOnlyIds(tasks.map((t) => t.id))
+            }}
+            onClose={(executed) => {
+              setRunner(null)
+              if (executed) {
+                setReloadKey((k) => k + 1)
+                api.facets().then(setFacets).catch(() => {})
+              }
+            }}
+          />
+        )}
+      </Suspense>
     </AppShell>
   )
 }

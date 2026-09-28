@@ -1,4 +1,4 @@
-using System.Text;
+﻿using System.Text;
 using AdminPanel.Api.Tasks;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
@@ -10,7 +10,6 @@ namespace AdminPanel.Api.Controllers;
 [Authorize(Policy = AuthPolicies.App)]
 public sealed class TasksController(ITaskRepository repo) : ControllerBase
 {
-    /// <summary>Lista zadań (do 10 000 wyników w jednym żądaniu).</summary>
     [HttpPost("search")]
     public Task<TaskSearchResult> Search([FromBody] TaskSearchRequest request, CancellationToken ct) =>
         repo.SearchAsync(request, ct);
@@ -19,16 +18,13 @@ public sealed class TasksController(ITaskRepository repo) : ControllerBase
     public async Task<object> Count([FromBody] TaskFilter filter, CancellationToken ct) =>
         new { total = await repo.CountAsync(filter, ct) };
 
-    /// <summary>Słowniki wartości dla filtrów wielokrotnego wyboru.</summary>
     [HttpGet("facets")]
     public Task<FacetsResult> Facets(CancellationToken ct) => repo.FacetsAsync(ct);
 
-    /// <summary>Surowy dokument z indeksu (podgląd szczegółów).</summary>
     [HttpGet("{id}/raw")]
     public async Task<IActionResult> Raw(string id, CancellationToken ct) =>
         await repo.GetRawAsync(id, ct) is { } doc ? Ok(doc) : NotFound();
 
-    /// <summary>Wszystkie zadania spełniające filtr (do limitu MaxBulkResults) - "zaznacz wszystkie wyniki".</summary>
     [HttpPost("refs")]
     public async Task<TaskIdsResult> Refs([FromBody] TaskFilter filter, CancellationToken ct)
     {
@@ -39,7 +35,6 @@ public sealed class TasksController(ITaskRepository repo) : ControllerBase
         return new TaskIdsResult(total, total > items.Count, items);
     }
 
-    /// <summary>Eksport odfiltrowanych zadań do CSV (strumieniowo, separator ';', UTF-8 z BOM).</summary>
     [HttpPost("export")]
     public async Task Export([FromBody] ExportRequest request, CancellationToken ct)
     {

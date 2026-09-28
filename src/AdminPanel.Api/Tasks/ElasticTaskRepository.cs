@@ -7,10 +7,6 @@ using Microsoft.Extensions.Options;
 
 namespace AdminPanel.Api.Tasks;
 
-/// <summary>
-/// Dostęp do indeksu zadań przez REST API Elasticsearcha (działa z ES 7.10+ i 8.x).
-/// Zapytania budowane ręcznie, żeby nie wiązać się z wersją klienta.
-/// </summary>
 public sealed class ElasticTaskRepository(HttpClient http, IOptions<ElasticsearchOptions> options, ILogger<ElasticTaskRepository> log)
     : ITaskRepository
 {
@@ -141,8 +137,6 @@ public sealed class ElasticTaskRepository(HttpClient http, IOptions<Elasticsearc
         return hits.GetArrayLength() == 0 ? null : hits[0].GetProperty("_source").Clone();
     }
 
-    // ---------------------------------------------------------------- query building
-
     internal JsonObject BuildQuery(TaskFilter f)
     {
         var must = new JsonArray();
@@ -222,7 +216,6 @@ public sealed class ElasticTaskRepository(HttpClient http, IOptions<Elasticsearc
         {
             [_opt.Field(field)] = new JsonObject { ["order"] = dir, ["missing"] = "_last", ["unmapped_type"] = "keyword" },
         });
-        // tie-breaker - wymagany dla stabilnego search_after
         if (field != "id")
             sort.Add(new JsonObject { [_opt.Field("id")] = new JsonObject { ["order"] = "asc", ["unmapped_type"] = "keyword" } });
         return sort;
@@ -231,8 +224,6 @@ public sealed class ElasticTaskRepository(HttpClient http, IOptions<Elasticsearc
     private static JsonArray SourceFields() => new(
         "id", "instanceId", "processId", "createdAt", "updatedAt", "workflowId", "processName",
         "currentStepName", "handledBy", "handledByName", "state", "status");
-
-    // ---------------------------------------------------------------- transport
 
     private async Task<JsonDocument> PostAsync(string path, JsonObject body, CancellationToken ct)
     {
@@ -259,7 +250,7 @@ public sealed class ElasticTaskRepository(HttpClient http, IOptions<Elasticsearc
                 return r.GetString() ?? text;
             if (err.TryGetProperty("reason", out var reason)) return reason.GetString() ?? text;
         }
-        catch { /* nie-JSON */ }
+        catch { }
         return text.Length > 500 ? text[..500] : text;
     }
 

@@ -1,4 +1,4 @@
-using System.Text.Json.Serialization;
+﻿using System.Text.Json.Serialization;
 using AdminPanel.Api;
 using AdminPanel.Api.Actions;
 using AdminPanel.Api.Tasks;
@@ -19,7 +19,6 @@ builder.Services.AddControllers().AddJsonOptions(o =>
 });
 builder.Services.AddProblemDetails();
 
-// ---------------------------------------------------------------- Elasticsearch
 var esOptions = builder.Configuration.GetSection(ElasticsearchOptions.Section).Get<ElasticsearchOptions>() ?? new();
 if (esOptions.UseSampleData)
 {
@@ -32,7 +31,6 @@ else
         .ConfigurePrimaryHttpMessageHandler(() => Handler(esOptions.SkipCertificateValidation));
 }
 
-// ---------------------------------------------------------------- Akcje + postęp przez WebSocket (SignalR)
 var execOptions = builder.Configuration.GetSection(ExecutionOptions.Section).Get<ExecutionOptions>() ?? new();
 builder.Services.AddSingleton<ActionCatalog>();
 builder.Services.AddSingleton<ClientCredentialsTokenProvider>();
@@ -44,7 +42,6 @@ builder.Services.AddHttpClient("actions", http => http.Timeout = TimeSpan.FromSe
     .ConfigurePrimaryHttpMessageHandler(() => Handler(execOptions.SkipCertificateValidation));
 builder.Services.AddHttpClient("oidc");
 
-// ---------------------------------------------------------------- Uwierzytelnianie
 var authOptions = builder.Configuration.GetSection(AuthOptions.Section).Get<AuthOptions>() ?? new();
 builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
     .AddJwtBearer(o =>
@@ -56,7 +53,6 @@ builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
         o.TokenValidationParameters.ValidAudience = authOptions.Audience;
         o.TokenValidationParameters.NameClaimType = "name";
         o.TokenValidationParameters.RoleClaimType = "role";
-        // WebSocket nie przenosi nagłówka Authorization - SignalR przekazuje token w query stringu
         o.Events = new JwtBearerEvents
         {
             OnMessageReceived = ctx =>
@@ -89,14 +85,33 @@ app.UseExceptionHandler(errorApp => errorApp.Run(async ctx =>
     await Results.Problem(detail: ex?.Message, statusCode: ctx.Response.StatusCode).ExecuteAsync(ctx);
 }));
 
-app.UseDefaultFiles();
+if (app.Configuration["PathBase"] is { Length: > 0 } pathBase)
+    app.UsePathBase(pathBase);
+
 app.UseStaticFiles();
+app.UseRouting();
 app.UseAuthentication();
 app.UseAuthorization();
 
 app.MapControllers();
 app.MapHub<JobsHub>("/hubs/jobs");
-app.MapFallbackToFile("index.html");
+
+app.MapFallback(async (HttpContext ctx, IWebHostEnvironment env) =>
+{
+    if (ctx.Request.Path.StartsWithSegments("/api") || ctx.Request.Path.StartsWithSegments("/hubs"))
+        return Results.NotFound();
+
+    var file = env.WebRootFileProvider.GetFileInfo("index.html");
+    if (!file.Exists) return Results.NotFound("Brak wwwroot/index.html - zbuduj frontend (npm run build).");
+
+    using var reader = new StreamReader(file.CreateReadStream());
+    var html = await reader.ReadToEndAsync();
+    var baseHref = System.Net.WebUtility.HtmlEncode(ctx.Request.PathBase.Value?.TrimEnd('/') + "/");
+    html = html.Replace("<base href=\"/\" />", $"<base href=\"{baseHref}\" />");
+
+    ctx.Response.Headers.CacheControl = "no-cache";
+    return Results.Content(html, "text/html; charset=utf-8");
+});
 
 app.Run();
 

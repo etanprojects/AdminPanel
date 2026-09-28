@@ -1,12 +1,8 @@
-using System.Text.Json;
+﻿using System.Text.Json;
 using Microsoft.AspNetCore.Mvc;
 
 namespace AdminPanel.Api.Controllers;
 
-/// <summary>
-/// Atrapa systemu docelowego do testów lokalnych (tylko środowisko Development).
-/// Losowo zwraca błędy 404/409/500, żeby było widać obsługę błędów w UI.
-/// </summary>
 [ApiController]
 [Route("mock")]
 public sealed class MockTargetController(IHostEnvironment env) : ControllerBase

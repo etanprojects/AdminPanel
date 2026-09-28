@@ -1,17 +1,16 @@
 import dayjs from 'dayjs'
 
-/** Formatuje datę z indeksu (np. 2025-10-03T12:59:40.7566670 lub ...+02:00) do czasu lokalnego. */
 export function formatDate(value?: string): string {
   if (!value) return ''
   const d = dayjs(value.replace(/(\.\d{3})\d+/, '$1'))
   return d.isValid() ? d.format('YYYY-MM-DD HH:mm:ss') : value
 }
 
-/** "YYYY-MM-DD HH:mm:ss" (Mantine) -> "YYYY-MM-DDTHH:mm:ss" (backend / Elasticsearch). */
 export const toApiDate = (value: string | null | undefined) =>
   value ? value.replace(' ', 'T') : undefined
 
 const CSV_SEP = ';'
+const BOM = String.fromCharCode(0xfeff)
 
 function csvEscape(value: unknown): string {
   if (value === null || value === undefined) return ''
@@ -20,10 +19,9 @@ function csvEscape(value: unknown): string {
   return /[;"\r\n']/.test(s) ? `"${s.replace(/"/g, '""')}"` : s
 }
 
-/** CSV zgodny z polskim Excelem: separator ';' i BOM UTF-8. */
 export function buildCsv(header: string[], rows: unknown[][]): Blob {
   const lines = [header, ...rows].map((r) => r.map(csvEscape).join(CSV_SEP))
-  return new Blob(['﻿' + lines.join('\r\n') + '\r\n'], { type: 'text/csv;charset=utf-8' })
+  return new Blob([BOM + lines.join('\r\n') + '\r\n'], { type: 'text/csv;charset=utf-8' })
 }
 
 export function downloadBlob(blob: Blob, fileName: string) {

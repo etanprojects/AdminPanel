@@ -10,4 +10,8 @@
     <PackageReference Include="Microsoft.AspNetCore.Authentication.JwtBearer" Version="10.0.12" />
   </ItemGroup>
 
+  <ItemGroup>
+    <InternalsVisibleTo Include="AdminPanel.Api.Tests" />
+  </ItemGroup>
+
 </Project>

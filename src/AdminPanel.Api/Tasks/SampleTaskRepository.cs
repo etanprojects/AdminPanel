@@ -5,10 +5,6 @@ using Microsoft.Extensions.Options;
 
 namespace AdminPanel.Api.Tasks;
 
-/// <summary>
-/// Dane przykładowe w pamięci - pozwala uruchomić UI bez dostępu do Elasticsearcha
-/// (Elasticsearch:UseSampleData = true). Query string traktowany jest jako "zawiera" po wszystkich polach.
-/// </summary>
 public sealed class SampleTaskRepository(IOptions<ElasticsearchOptions> options) : ITaskRepository
 {
     private static readonly Lazy<List<TaskDto>> Data = new(Generate);
@@ -56,7 +52,7 @@ public sealed class SampleTaskRepository(IOptions<ElasticsearchOptions> options)
     {
         IEnumerable<TaskDto> q = Data.Value;
 
-        if (!string.IsNullOrWhiteSpace(f.Query))
+        if (!string.IsNullOrWhiteSpace(f.Query) && f.Query.Trim() != "*")
         {
             var terms = f.Query.Split(' ', StringSplitOptions.RemoveEmptyEntries).Select(s => s.Trim('"'));
             q = q.Where(t => terms.All(term =>

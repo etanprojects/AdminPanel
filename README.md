@@ -33,6 +33,37 @@ dotnet publish src/AdminPanel.Api -c Release -o publish
 
 Build SPA trafia do `src/AdminPanel.Api/wwwroot`. SPA, API i hub działają pod jednym originem, więc własny CORS nie jest potrzebny.
 
+### Wdrożenie pod podścieżką (np. `https://serwer/AdminPanel/`)
+
+- **IIS (aplikacja w podkatalogu witryny):** nic nie trzeba konfigurować. IIS ustawia `PathBase`, a backend wstawia go
+  do `<base href>` w `index.html`. Frontend używa ścieżek względnych (`assets/`, `api/`, `hubs/`), więc zadziała pod
+  dowolną ścieżką.
+- **Reverse proxy przekazujący prefiks** (nginx, YARP): ustaw `"PathBase": "/AdminPanel"` w `appsettings.json`.
+- **Serwer OIDC:** redirect URI musi zawierać podścieżkę i ukośnik na końcu: `https://serwer/AdminPanel/`.
+- **WebSockety na IIS:** włącz funkcję Windows „WebSocket Protocol” (Server Roles → Web Server → Application Development).
+  Bez niej SignalR przejdzie na wolniejszy long polling.
+- Plik `actions.json` jest szukany w katalogu aplikacji (ContentRoot, a potem katalog z DLL). Jeśli go brakuje, log podaje sprawdzone ścieżki.
+
+## Testy
+
+```bash
+dotnet test tests/AdminPanel.Api.Tests
+```
+
+```bash
+npm --prefix src/admin-panel-web test
+```
+
+- **Backend** (xUnit, `tests/AdminPanel.Api.Tests`):
+  - budowanie zapytań do Elasticsearch: filtry, zakresy dat od/do, escape'owanie znaków;
+  - komunikacja z ES na atrapie HTTP: paginacja, `search_after`, obsługa błędów;
+  - akcje: szablony, walidacja parametrów, wykonywanie requestów (autoryzacja, opisy błędów, przerwanie);
+  - joby z powiadomieniami SignalR, katalog akcji, CSV.
+- **Frontend** (Vitest + Testing Library, pliki `*.test.ts(x)` obok kodu):
+  - funkcje pomocnicze i CSV, logika filtrów, klient API;
+  - pasek wyszukiwania i tabela;
+  - panel akcji: blokady przycisku, wielokrotne przełączanie, postęp, ponowne zaznaczanie błędnych.
+
 ## Architektura
 
 ```

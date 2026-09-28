@@ -1,4 +1,4 @@
-using Microsoft.AspNetCore.Authorization;
+﻿using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.Extensions.Options;
 
@@ -8,7 +8,6 @@ namespace AdminPanel.Api.Controllers;
 [Route("api")]
 public sealed class ConfigController(IOptions<AuthOptions> auth, IOptions<ElasticsearchOptions> es) : ControllerBase
 {
-    /// <summary>Konfiguracja dla SPA - dostępna bez logowania (potrzebna, żeby się zalogować).</summary>
     [HttpGet("config")]
     [AllowAnonymous]
     public object GetConfig() => new

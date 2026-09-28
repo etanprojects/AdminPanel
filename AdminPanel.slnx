@@ -2,4 +2,7 @@
   <Folder Name="/src/">
     <Project Path="src/AdminPanel.Api/AdminPanel.Api.csproj" />
   </Folder>
+  <Folder Name="/tests/">
+    <Project Path="tests/AdminPanel.Api.Tests/AdminPanel.Api.Tests.csproj" />
+  </Folder>
 </Solution>

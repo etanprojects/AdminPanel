@@ -1,18 +1,13 @@
 import { UserManager, WebStorageStateStore, type User } from 'oidc-client-ts'
 import type { AppConfig } from './types'
 
-/**
- * Logowanie przez serwer OpenID Connect (Authorization Code + PKCE).
- * Wymaga, żeby w konfiguracji klienta na serwerze OIDC był zarejestrowany redirect URI
- * (origin tej aplikacji z "/") oraz dozwolony CORS dla tego originu (discovery + token endpoint).
- */
 let manager: UserManager | null = null
 let authEnabled = false
 
 export function initAuth(config: AppConfig) {
   authEnabled = config.auth.enabled
   if (!authEnabled) return
-  const redirect = window.location.origin + '/'
+  const redirect = document.baseURI
   manager = new UserManager({
     authority: config.auth.authority,
     client_id: config.auth.clientId,
@@ -26,11 +21,9 @@ export function initAuth(config: AppConfig) {
   })
 }
 
-/** Zwraca zalogowanego użytkownika albo przekierowuje na stronę logowania (wtedy zwraca null). */
 export async function ensureLoggedIn(): Promise<User | null> {
   if (!manager) return null
 
-  // odpowiedź z iframe przy cichym odnawianiu tokenu
   if (window.self !== window.top) {
     await manager.signinSilentCallback()
     return null

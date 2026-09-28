@@ -2,29 +2,22 @@
 
 namespace AdminPanel.Api.Tasks;
 
-/// <summary>Filtry listy zadań. Wszystkie warunki łączone są przez AND.</summary>
 public sealed record TaskFilter
 {
-    /// <summary>Składnia query_string Elasticsearcha, np. <c>keywords:"XXVIII C 11648/21" AND state:2001</c>.</summary>
     public string? Query { get; init; }
 
-    /// <summary>Fragment Id zadania (contains, bez rozróżniania wielkości liter).</summary>
     public string? Id { get; init; }
 
-    /// <summary>Fragment numeru zadania (workflowId).</summary>
     public string? WorkflowId { get; init; }
 
-    /// <summary>Dokładne Id zadań (np. eksport tylko zaznaczonych).</summary>
     public string[]? Ids { get; init; }
 
     public string[]? ProcessNames { get; init; }
     public string[]? StepNames { get; init; }
     public string[]? HandledByNames { get; init; }
 
-    /// <summary>true = tylko zadania niepobrane przez nikogo (brak handledByName).</summary>
     public bool? NotHandled { get; init; }
 
-    /// <summary>Daty w formacie yyyy-MM-ddTHH:mm:ss (bez strefy - interpretowane w Elasticsearch:TimeZone).</summary>
     public string? CreatedFrom { get; init; }
     public string? CreatedTo { get; init; }
     public string? UpdatedFrom { get; init; }
@@ -80,7 +73,6 @@ public sealed record TaskDto
         e.TryGetProperty(name, out var v) && v.ValueKind == JsonValueKind.Number && v.TryGetInt32(out var i) ? i : null;
 }
 
-/// <summary>Minimalny zestaw danych zadania potrzebny do wywołania akcji.</summary>
 public sealed record TaskRef(string Id, string? WorkflowId, string? InstanceId, string? ProcessId);
 
 public sealed record TaskSearchResult(long Total, IReadOnlyList<TaskDto> Items);
@@ -98,13 +90,11 @@ public interface ITaskRepository
 {
     Task<TaskSearchResult> SearchAsync(TaskSearchRequest request, CancellationToken ct);
 
-    /// <summary>Wszystkie zadania spełniające filtr (do limitu MaxBulkResults), strumieniowo.</summary>
     IAsyncEnumerable<TaskDto> ScanAsync(TaskFilter filter, string? sortField, string? sortDir, CancellationToken ct);
 
     Task<long> CountAsync(TaskFilter filter, CancellationToken ct);
 
     Task<FacetsResult> FacetsAsync(CancellationToken ct);
 
-    /// <summary>Surowy dokument (_source) do podglądu.</summary>
     Task<JsonElement?> GetRawAsync(string id, CancellationToken ct);
 }

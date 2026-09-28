@@ -1,13 +1,4 @@
 {
-  // Definicje typów akcji. Plik jest przeładowywany automatycznie po zapisaniu - restart nie jest potrzebny.
-  //
-  // Placeholdery (w Url, Body i Headers):
-  //   {{task.id}}, {{task.workflowId}}, {{task.instanceId}}, {{task.processId}}  - dane zadania
-  //   {{param.NAZWA}}                                                          - parametr podany przy uruchomieniu
-  // Wartość w Body równa dokładnie "{{...}}" zachowuje typ (bool/number), np. "isReject": "{{param.isReject}}" -> true.
-  //
-  // Auth: PassThrough (token zalogowanego użytkownika), ClientCredentials (token aplikacji, sekcja Execution:ClientCredentials), None.
-  // Parameters[].Type: boolean | text | textarea | number | select (select wymaga Options).
   "actions": [
     {
       "key": "finish-as-administrator",

@@ -1,0 +1,75 @@
+html,
+body,
+#root {
+  height: 100%;
+}
+
+.task-scroll {
+  position: relative;
+  overflow: auto;
+  height: calc(100vh - 300px);
+  min-height: 320px;
+}
+
+.task-table {
+  width: 100%;
+  min-width: 1300px;
+  table-layout: fixed;
+  border-collapse: separate;
+  border-spacing: 0;
+  font-size: var(--mantine-font-size-sm);
+}
+
+.task-table th {
+  position: sticky;
+  top: 0;
+  z-index: 2;
+  background: var(--mantine-color-body);
+  text-align: left;
+  font-weight: 600;
+  padding: 8px 10px;
+  border-bottom: 1px solid var(--mantine-color-default-border);
+  white-space: nowrap;
+}
+
+.task-table th[data-sortable] {
+  cursor: pointer;
+  user-select: none;
+}
+
+.task-table th[data-sortable]:hover {
+  background: var(--mantine-color-default-hover);
+}
+
+.task-table td {
+  padding: 0 10px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  border-bottom: 1px solid var(--mantine-color-default-border);
+}
+
+.task-table tbody tr {
+  cursor: pointer;
+}
+
+.task-table tbody tr[data-odd] {
+  background: var(--mantine-color-default-hover);
+}
+
+.task-table tbody tr:hover {
+  background: var(--mantine-color-gray-light-hover);
+}
+
+.task-table tbody tr[data-selected] {
+  background: var(--mantine-color-blue-light);
+}
+
+.dim {
+  color: var(--mantine-color-dimmed);
+}
+
+.mono {
+  font-family: ui-monospace, 'Cascadia Code', Consolas, monospace;
+  font-size: 12px;
+}

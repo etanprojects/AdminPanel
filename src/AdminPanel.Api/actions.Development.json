@@ -1,0 +1,47 @@
+{
+  // Wersja deweloperska - wskazuje na mock w tej samej aplikacji (losowo zwraca błędy 404/409/500).
+  "actions": [
+    {
+      "key": "finish-as-administrator",
+      "name": "Zakończ jako administrator",
+      "description": "Wywołuje POST /process-instances/finish-as-administrator dla każdego zaznaczonego zadania.",
+      "color": "red",
+      "method": "POST",
+      "url": "http://localhost:5148/mock/process-instances/finish-as-administrator",
+      "auth": "PassThrough",
+      "parallelism": 4,
+      "body": {
+        "id": "{{task.id}}",
+        "isReject": "{{param.isReject}}",
+        "comment": "{{param.comment}}"
+      },
+      "parameters": [
+        { "name": "isReject", "label": "Odrzuć (isReject)", "type": "boolean", "default": false },
+        { "name": "comment", "label": "Komentarz", "type": "textarea", "required": true }
+      ]
+    },
+    {
+      "key": "finish-with-reason",
+      "name": "Zakończ z powodem (przykład select)",
+      "description": "Przykład akcji z parametrem typu select.",
+      "color": "orange",
+      "method": "POST",
+      "url": "http://localhost:5148/mock/process-instances/finish-as-administrator",
+      "auth": "None",
+      "body": {
+        "id": "{{task.id}}",
+        "isReject": true,
+        "comment": "{{param.reason}} ({{task.workflowId}})"
+      },
+      "parameters": [
+        {
+          "name": "reason", "label": "Powód", "type": "select", "required": true,
+          "options": [
+            { "value": "Duplikat", "label": "Duplikat" },
+            { "value": "Błędne dane", "label": "Błędne dane" }
+          ]
+        }
+      ]
+    }
+  ]
+}

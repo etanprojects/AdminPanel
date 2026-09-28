@@ -1,5 +1,5 @@
 import { Center, Checkbox, Group, LoadingOverlay, Text } from '@mantine/core'
-import { IconArrowDown, IconArrowUp, IconSelector } from '@tabler/icons-react'
+import { IconArrowDown, IconArrowUp, IconSelector } from '../icons'
 import { useVirtualizer } from '@tanstack/react-virtual'
 import { memo, useRef } from 'react'
 import type { Sort, SortField, TaskDto, TaskRef } from '../types'

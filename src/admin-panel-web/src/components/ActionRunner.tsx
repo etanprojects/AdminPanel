@@ -29,7 +29,7 @@ import {
   IconPlugConnected,
   IconPlugConnectedX,
   IconSelect,
-} from '@tabler/icons-react'
+} from '../icons'
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { api, watchJob } from '../api'
 import type {

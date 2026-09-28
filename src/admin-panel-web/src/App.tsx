@@ -39,7 +39,7 @@ import {
   IconSearch,
   IconSquareOff,
   IconSun,
-} from '@tabler/icons-react'
+} from './icons'
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { api } from './api'
 import { getUserName, isAuthEnabled, logout } from './auth'

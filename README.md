@@ -4,8 +4,9 @@ Lista zadań z indeksu Elasticsearch `basic_basetask` z filtrami, zaznaczaniem i
 uruchamianie akcji (np. `finish-as-administrator`) na zaznaczonych zadaniach, z postępem wysyłanym przez WebSocket.
 
 - **Backend**: .NET 10, kontrolery ASP.NET Core, SignalR, JWT Bearer (OIDC). Elasticsearch przez REST (ES 7.10+ / 8.x).
-- **Frontend**: React 19 + Vite + Mantine 9, `oidc-client-ts` (Authorization Code + PKCE), `@microsoft/signalr`,
-  `@tanstack/react-virtual`.
+- **Frontend**: React 19 + Vite 6 + Mantine 9, `oidc-client-ts` (Authorization Code + PKCE), `@microsoft/signalr`,
+  `@tanstack/react-virtual`. Wymaga **Node ≥ 20.14** (sprawdzone na 20.14.0). Ikony (Tabler, MIT) są w `src/icons.tsx`,
+  bez pakietu `@tabler/icons`. W `.npmrc` są wydłużone timeouty dla sieci firmowej, tam też można ustawić wewnętrzny registry.
 
 ## Uruchomienie lokalne (dane przykładowe, bez ES i bez logowania)
 
